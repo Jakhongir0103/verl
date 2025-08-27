@@ -24,7 +24,6 @@ torchrun --standalone --nnodes=1 --nproc_per_node=8 \
     model.target_modules=all-linear \
     model.strategy=fsdp \
     ulysses_sequence_parallel_size=2 \
-    use_remove_padding=true \
-    trainer.device=npu
+    use_remove_padding=true
 
 rm -rf ./outputs ./save_ckpts

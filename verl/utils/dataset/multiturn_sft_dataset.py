@@ -16,6 +16,7 @@
 Multi-turn SFT dataset that supports training on conversation data with multiple turns
 """
 
+import json
 import logging
 from typing import Any, Optional
 
@@ -57,7 +58,6 @@ class MultiTurnSFTDataset(Dataset):
         self.messages_key = multiturn_config.get("messages_key", "messages")
         self.tools_key = multiturn_config.get("tools_key", "tools")
         self.enable_thinking_key = multiturn_config.get("enable_thinking_key", "enable_thinking")
-        self.apply_chat_template_kwargs = config.get("apply_chat_template_kwargs", {})
         assert self.truncation in ["error", "left", "right"]
 
         if not isinstance(parquet_files, list):
@@ -136,7 +136,6 @@ class MultiTurnSFTDataset(Dataset):
                 add_generation_prompt=False,
                 enable_thinking=enable_thinking,
                 tools=tools,
-                **self.apply_chat_template_kwargs,
             )
             if is_assistant:
                 prev_applied_text_w_generation_prompt = self.tokenizer.apply_chat_template(
@@ -145,7 +144,6 @@ class MultiTurnSFTDataset(Dataset):
                     add_generation_prompt=True,
                     enable_thinking=enable_thinking,
                     tools=tools,
-                    **self.apply_chat_template_kwargs,
                 )
 
         else:
@@ -157,7 +155,6 @@ class MultiTurnSFTDataset(Dataset):
             add_generation_prompt=False,
             enable_thinking=enable_thinking,
             tools=tools,
-            **self.apply_chat_template_kwargs,
         )
         # Get tokens for the current message only
         if is_assistant:
@@ -233,6 +230,11 @@ class MultiTurnSFTDataset(Dataset):
         tools = self.tools[item] if self.tools is not None else None
         enable_thinking = self.enable_thinking[item] if self.enable_thinking is not None else None
 
+        if self.tools is not None:
+            tools = json.loads(self.tools[item])
+        else:
+            tools = None
+
         # First, get the full conversation tokens
         try:
             full_tokens = tokenizer.apply_chat_template(
@@ -242,7 +244,6 @@ class MultiTurnSFTDataset(Dataset):
                 return_tensors="pt",
                 add_generation_prompt=False,
                 enable_thinking=enable_thinking,
-                **self.apply_chat_template_kwargs,
             )
         except Exception as e:
             logging.error(

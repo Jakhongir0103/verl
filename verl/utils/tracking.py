@@ -34,7 +34,7 @@ class Tracking:
         logger: Dictionary of initialized logger instances for each backend.
     """
 
-    supported_backend = ["wandb", "mlflow", "swanlab", "vemlp_wandb", "tensorboard", "console", "clearml", "trackio"]
+    supported_backend = ["wandb", "mlflow", "swanlab", "vemlp_wandb", "tensorboard", "console", "clearml"]
 
     def __init__(self, project_name, experiment_name, default_backend: str | list[str] = "console", config=None):
         if isinstance(default_backend, str):
@@ -57,12 +57,6 @@ class Tracking:
                 settings = wandb.Settings(https_proxy=config["trainer"]["wandb_proxy"])
             wandb.init(project=project_name, name=experiment_name, config=config, settings=settings)
             self.logger["wandb"] = wandb
-
-        if "trackio" in default_backend:
-            import trackio
-
-            trackio.init(project=project_name, name=experiment_name, config=config)
-            self.logger["trackio"] = trackio
 
         if "mlflow" in default_backend:
             import os
@@ -147,10 +141,9 @@ class Tracking:
             self.logger["vemlp_wandb"].finish(exit_code=0)
         if "tensorboard" in self.logger:
             self.logger["tensorboard"].finish()
+
         if "clearnml" in self.logger:
             self.logger["clearnml"].finish()
-        if "trackio" in self.logger:
-            self.logger["trackio"].finish()
 
 
 class ClearMLLogger:
@@ -269,9 +262,6 @@ def _flatten_dict(raw: dict[str, Any], *, sep: str) -> dict[str, Any]:
 
 @dataclasses.dataclass
 class ValidationGenerationsLogger:
-    project_name: str = None
-    experiment_name: str = None
-
     def log(self, loggers, samples, step):
         if "wandb" in loggers:
             self.log_generations_to_wandb(samples, step)
@@ -397,13 +387,7 @@ class ValidationGenerationsLogger:
         if not hasattr(self, "writer"):
             from torch.utils.tensorboard import SummaryWriter
 
-            # Use the same directory structure as _TensorboardAdapter
-            if self.project_name and self.experiment_name:
-                default_dir = os.path.join("tensorboard_log", self.project_name, self.experiment_name)
-            else:
-                default_dir = "tensorboard_log"
-
-            tensorboard_dir = os.environ.get("TENSORBOARD_DIR", default_dir)
+            tensorboard_dir = os.environ.get("TENSORBOARD_DIR", "tensorboard_log")
             os.makedirs(tensorboard_dir, exist_ok=True)
             self.writer = SummaryWriter(log_dir=tensorboard_dir)
 

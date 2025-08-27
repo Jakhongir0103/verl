@@ -25,7 +25,6 @@ from tests.experimental.agent_loop.agent_utils import init_agent_loop_manager
 from verl.experimental.agent_loop.agent_loop import get_trajectory_info
 from verl.protocol import DataProto
 from verl.tools.base_tool import BaseTool, OpenAIFunctionToolSchema
-from verl.tools.schemas import ToolResponse
 from verl.utils import hf_tokenizer
 
 
@@ -34,24 +33,19 @@ def init_config() -> DictConfig:
     from hydra import compose, initialize_config_dir
 
     with initialize_config_dir(config_dir=os.path.abspath("verl/trainer/config")):
-        config = compose(
-            config_name="ppo_trainer",
-            overrides=[
-                "actor_rollout_ref.actor.use_dynamic_bsz=true",
-                # test sleep/wake_up with fsdp offload
-                "actor_rollout_ref.actor.fsdp_config.param_offload=True",
-                "actor_rollout_ref.actor.fsdp_config.optimizer_offload=True",
-            ],
-        )
-
+        config = compose(config_name="ppo_trainer")
     model_path = "Qwen/Qwen2.5-1.5B-Instruct"
     config.actor_rollout_ref.model.path = model_path
-    config.actor_rollout_ref.rollout.name = os.environ["ROLLOUT_NAME"]
+    config.actor_rollout_ref.rollout.name = os.getenv("ROLLOUT_NAME", "vllm")
     config.actor_rollout_ref.rollout.mode = "async"
     config.actor_rollout_ref.rollout.prompt_length = 4096
     config.actor_rollout_ref.rollout.response_length = 4096
     config.actor_rollout_ref.rollout.n = 4
     config.actor_rollout_ref.rollout.agent.num_workers = 2
+
+    # test sleep/wake_up with fsdp offload
+    config.actor_rollout_ref.actor.fsdp_config.param_offload = True
+    config.actor_rollout_ref.actor.fsdp_config.optimizer_offload = True
 
     return config
 
@@ -83,8 +77,6 @@ def test_single_turn(init_config):
         non_tensor_batch={
             "raw_prompt": np.array(raw_prompts),
             "agent_name": np.array(["single_turn_agent"] * len(raw_prompts)),
-            "data_source": np.array(["openai/gsm8k"] * len(raw_prompts)),
-            "reward_model": np.array([{"style": "rule", "ground_truth": "1.0"}] * len(raw_prompts)),
         },
     )
     n = init_config.actor_rollout_ref.rollout.n
@@ -97,9 +89,6 @@ def test_single_turn(init_config):
     assert result.batch["input_ids"].size(1) == seq_len
     assert result.batch["attention_mask"].size(1) == seq_len
     assert result.batch["position_ids"].size(1) == seq_len
-    assert result.batch["rm_scores"].size(1) == result.batch["responses"].size(1)
-    if init_config.actor_rollout_ref.rollout.calculate_log_probs:
-        assert result.batch["rollout_log_probs"].size(1) == result.batch["responses"].size(1)
 
     # check turns
     num_turns = result.non_tensor_batch["__num_turns__"]
@@ -131,12 +120,12 @@ class WeatherTool(BaseTool):
         schema = get_json_schema(self.get_current_temperature)
         return OpenAIFunctionToolSchema(**schema)
 
-    async def execute(self, instance_id: str, parameters: dict[str, Any], **kwargs) -> tuple[ToolResponse, float, dict]:
+    async def execute(self, instance_id: str, parameters: dict[str, Any], **kwargs) -> tuple[str, float, dict]:
         try:
             result = self.get_current_temperature(**parameters)
-            return ToolResponse(text=json.dumps(result)), 0, {}
+            return json.dumps(result), 0, {}
         except Exception as e:
-            return ToolResponse(text=str(e)), 0, {}
+            return str(e), 0, {}
 
 
 class WeatherToolWithData(BaseTool):
@@ -163,12 +152,12 @@ class WeatherToolWithData(BaseTool):
             "unit": unit,
         }
 
-    async def execute(self, instance_id: str, parameters: dict[str, Any], **kwargs) -> tuple[ToolResponse, float, dict]:
+    async def execute(self, instance_id: str, parameters: dict[str, Any], **kwargs) -> tuple[str, float, dict]:
         try:
             result = self.get_temperature_date(**parameters)
-            return ToolResponse(text=json.dumps(result)), 0, {}
+            return json.dumps(result), 0, {}
         except Exception as e:
-            return ToolResponse(text=str(e)), 0, {}
+            return str(e), 0, {}
 
 
 def test_tool_agent(init_config):
@@ -180,8 +169,7 @@ def test_tool_agent(init_config):
                 "VLLM_LOGGING_LEVEL": "INFO",
                 "VLLM_USE_V1": "1",
             }
-        },
-        ignore_reinit_error=True,
+        }
     )
 
     # =========================== 1. Init rollout manager ===========================
@@ -205,7 +193,6 @@ def test_tool_agent(init_config):
     init_config.actor_rollout_ref.rollout.n = n
     init_config.actor_rollout_ref.rollout.multi_turn.tool_config_path = tool_config_path
     init_config.actor_rollout_ref.rollout.multi_turn.max_parallel_calls = 2
-    init_config.actor_rollout_ref.rollout.calculate_log_probs = True
     agent_loop_manager = init_agent_loop_manager(init_config)
 
     # =========================== 2. Generate sequences  ===========================
@@ -232,8 +219,6 @@ def test_tool_agent(init_config):
         non_tensor_batch={
             "raw_prompt": np.array([np.array(prompt) for prompt in raw_prompts], dtype=object),
             "agent_name": np.array(["tool_agent"] * len(raw_prompts)),
-            "data_source": np.array(["openai/gsm8k"] * len(raw_prompts)),
-            "reward_model": np.array([{"style": "rule", "ground_truth": "1.0"}] * len(raw_prompts)),
         },
     )
     batch = batch.repeat(n)
@@ -256,11 +241,9 @@ def test_tool_agent(init_config):
     responses = result.batch["responses"]
     response_mask = result.batch["response_mask"]
     attention_mask = result.batch["attention_mask"]
-    assert result.batch["rm_scores"].size(1) == responses.size(1)
     assert responses.size() == response_mask.size(), f"{responses.size()} != {response_mask.size()}"
-    assert result.batch["rollout_log_probs"].size(1) == result.batch["responses"].size(1)
-
     response_length = response_mask.size(1)
+
     for i in range(len(responses)):
         # response with tool response
         valid_tokens = responses[i][attention_mask[i][-response_length:].bool()]

@@ -13,17 +13,15 @@
 # limitations under the License.
 
 from collections import defaultdict
-from typing import Any
 
 import torch
 
 from verl import DataProto
 from verl.workers.reward_manager import register
-from verl.workers.reward_manager.abstract import AbstractRewardManager, RawRewardFn
 
 
 @register("batch")
-class BatchRewardManager(AbstractRewardManager):
+class BatchRewardManager:
     """
     A batch reward manager that computes rewards for a batch of data.
 
@@ -35,9 +33,7 @@ class BatchRewardManager(AbstractRewardManager):
         reward_kwargs (dict): The keyword arguments to pass to the reward function.
     """
 
-    def __init__(
-        self, tokenizer, num_examine, compute_score: RawRewardFn, reward_fn_key="data_source", **reward_kwargs
-    ):
+    def __init__(self, tokenizer, num_examine, compute_score, reward_fn_key="data_source", **reward_kwargs):
         self.tokenizer = tokenizer
         self.num_examine = num_examine
         self.compute_score = compute_score
@@ -73,7 +69,7 @@ class BatchRewardManager(AbstractRewardManager):
 
         return scores
 
-    def __call__(self, data: DataProto, return_dict: bool = False) -> torch.Tensor | dict[str, Any]:
+    def __call__(self, data: DataProto, return_dict=False):
         # If there is rm score, we directly return rm score. Otherwise, we compute via rm_score_fn
         if "rm_scores" in data.batch.keys():
             if return_dict:
@@ -91,7 +87,7 @@ class BatchRewardManager(AbstractRewardManager):
 
         scores = self.verify(data)
         rewards = []
-        already_printed: dict[str, Any] = {}
+        already_printed = {}
 
         for i in range(len(data)):
             length = valid_response_lengths[i].item()

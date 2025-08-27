@@ -44,7 +44,7 @@ def default_compute_score(
         from . import gsm8k
 
         res = gsm8k.compute_score(solution_str, ground_truth)
-    elif data_source in ["lighteval/MATH", "DigitalLearningGmbH/MATH-lighteval", "HuggingFaceH4/MATH-500"]:
+    elif data_source in ["lighteval/MATH", "DigitalLearningGmbH/MATH-lighteval"]:
         from . import math
 
         res = math.compute_score(solution_str, ground_truth)
@@ -89,6 +89,20 @@ def default_compute_score(
         from . import geo3k
 
         res = geo3k.compute_score(solution_str, ground_truth)
+
+    elif data_source == "text_rotations":
+        from . import geo3k
+
+        res = geo3k.compute_score(solution_str, ground_truth)
+
+    elif data_source == "text_rotations_angle_reward":
+        from . import custom_rotation
+
+        # Assuming the model outputs the rotation angle of the image,
+        # The reward is computed as |predicted_angle - ground_truth_angle|
+        # normalized to 0 -- 1 from 180° -- 0°
+        res = custom_rotation.compute_score(solution_str, ground_truth)
+
     elif data_source in [
         "searchR1_nq",
         "searchR1_triviaqa",

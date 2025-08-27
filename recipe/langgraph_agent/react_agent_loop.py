@@ -99,9 +99,7 @@ class ReactAgentLoop(AgentLoopBase):
         graph = workflow.compile()
         return graph
 
-    async def run(self, sampling_params: dict[str, Any], **kwargs) -> AgentLoopOutput:
-        messages = list(kwargs["raw_prompt"])
-
+    async def run(self, messages: list[dict[str, Any]], sampling_params: dict[str, Any]) -> AgentLoopOutput:
         model_path = self.config.actor_rollout_ref.model.path
         model_name = "/".join(model_path.split("/")[-2:])
 

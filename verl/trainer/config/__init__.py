@@ -12,8 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .algorithm import *  # noqa
-from .config import *  # noqa
-from . import config, algorithm
+from .algorithm import AlgoConfig, FilterGroupsConfig, KLControlConfig, PFPPOConfig
+from .config import CriticConfig, FSDPCriticConfig, MegatronCriticConfig
 
-__all__ = config.__all__ + algorithm.__all__
+__all__ = [
+    "AlgoConfig",
+    "CriticConfig",
+    "FilterGroupsConfig",
+    "FSDPCriticConfig",
+    "KLControlConfig",
+    "MegatronCriticConfig",
+    "PFPPOConfig",
+]

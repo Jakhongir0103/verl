@@ -31,7 +31,6 @@ from verl.tools.schemas import (
     OpenAIFunctionPropertySchema,
     OpenAIFunctionSchema,
     OpenAIFunctionToolSchema,
-    ToolResponse,
 )
 from verl.tools.search_tool import SearchTool
 from verl.workers.rollout.schemas import AsyncRolloutRequest, AsyncRolloutRequestStateEnum, Message
@@ -110,7 +109,7 @@ class TestRolloutWithSearchTools:
             for turn in expect_turn_array
         ]
         preencode_tool_return_array = [
-            ToolResponse(text=qwen_tokenizer.apply_chat_template([turn], tokenize=False, add_generation_prompt=True))
+            qwen_tokenizer.apply_chat_template([turn], tokenize=False, add_generation_prompt=True)
             for turn in tool_return_array
         ]
         return prompts, preencode_turn_array, preencode_tool_return_array
@@ -348,7 +347,7 @@ class TestRolloutWithSearchTools:
         search_counter = 0
         for msg in output_req.messages:
             if msg.role == "tool":
-                assert msg.content[0]["text"] == tool_return_array[search_counter].text
+                assert msg.content == tool_return_array[search_counter]
                 search_counter += 1
         assert search_counter == 2
 
