@@ -62,13 +62,13 @@ I trained `Qwen2.5-VL-3B-Instruct` randomly rotated images to predict the rotati
 - [0-180] -> 1 when the angles are equal, decreases linearly with angular error, and becomes 0 when the error reaches 180°
 - [0-45] -> 1 when the angles are equal, decreases linearly with angular error, and becomes 0 when the error is above 45°
 
-<div style="display: flex; gap: 20px;">
+<div align="center">
     <img src="figures/angle.png" alt="Number of Turns" style="width: 100%;"/>
 </div>
 
-<div style="display: flex; gap: 20px;">
-    <img src="figures/num_turns.png" alt="Number of Turns" style="width: 50%;"/>
-    <img src="figures/rewards.png" alt="Rewards" style="width: 50%;"/>
+<div align="center">
+    <img src="figures/num_turns.png" alt="Number of Turns" style="width: 48%;"/>
+    <img src="figures/rewards.png" alt="Rewards" style="width: 48%;"/>
 </div>
 
 1. With Reward [0-45], the model predicts the angles quite uniformly (+), but using the tool more than once (-).
